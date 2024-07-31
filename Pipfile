@@ -1,0 +1,26 @@
+[[source]]
+url = "https://pypi.org/simple"
+verify_ssl = true
+name = "pypi"
+
+[packages]
+mlx-lm = "*"
+aiohttp = "*"
+aiodns = "*"
+brotli = "*"
+aiortc = "*"
+melotts = {git = "git+https://github.com/paulingalls/MeloTTS.git"}
+opencv-python = "*"
+pyee = "*"
+uuid = "*"
+google-crc32c = "*"
+silero-vad = "*"
+torch = "*"
+numpy = "*"
+scipy = "*"
+
+[dev-packages]
+
+[requires]
+python_version = "3.12"
+python_full_version = "3.12.4"
