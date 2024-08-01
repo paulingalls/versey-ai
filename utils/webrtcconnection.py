@@ -61,12 +61,16 @@ class WebRTCConnection(AsyncIOEventEmitter):
                 self.sink.addTrack(track)
 
                 @self.transform.on("voiceStart")
-                def on_frame_data(data):
+                def on_voice_start(data):
                     self.send_string(f"voiceStart: {data}")
 
                 @self.transform.on("voiceEnd")
-                def on_frame_data(data):
+                def on_voice_end(data):
                     self.send_string(f"voiceEnd: {data}")
+
+                @self.transform.on("text")
+                def on_text(data):
+                    self.send_string(f"text: {data}")
 
             @track.on("ended")
             async def on_ended():

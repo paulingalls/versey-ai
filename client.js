@@ -156,17 +156,17 @@ function start() {
             dataChannelLog.textContent += '- open\n';
             dcInterval = setInterval(() => {
                 var message = 'ping ' + current_stamp();
-                dataChannelLog.textContent += '> ' + message + '\n';
+                // dataChannelLog.textContent += '> ' + message + '\n';
                 dc.send(message);
             }, 1000);
         });
         dc.addEventListener('message', (evt) => {
             dataChannelLog.textContent += '< ' + evt.data + '\n';
-
-            if (evt.data.substring(0, 4) === 'pong') {
-                var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
-                dataChannelLog.textContent += ' RTT ' + elapsed_ms + ' ms\n';
-            }
+            //
+            // if (evt.data.substring(0, 4) === 'pong') {
+            //     var elapsed_ms = current_stamp() - parseInt(evt.data.substring(5), 10);
+            //     dataChannelLog.textContent += ' RTT ' + elapsed_ms + ' ms\n';
+            // }
         });
     }
 
@@ -182,6 +182,7 @@ function start() {
             sampleRate: 16000, // {exact: 16000},
             channelCount: 1, // {exact: 1},
             sampleSize: 8, // {exact: 8},
+            noiseSuppression: true
         };
 
         const device = document.getElementById('audio-input').value;
