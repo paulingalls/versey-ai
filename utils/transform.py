@@ -19,6 +19,7 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         self.track = track
         self.vad = None
         self.buffer = None
+        self.voice_buffer = None
         self.count = 1
         self.resampler = AudioResampler(format="s16", layout="mono", rate=TARGET_SAMPLE_RATE)
         self.vad = VAD(TARGET_SAMPLE_RATE)
@@ -44,13 +45,24 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
 
         if self.buffer is None:
             self.buffer = resampled.to_ndarray()
-        elif self.count < 256:
+        elif self.count < 8:
             self.count += 1
             self.buffer = np.concatenate((self.buffer, resampled.to_ndarray()), axis=1)
         else:
-            self.vad.vad(self.buffer)
-            self.emit("text", self.whisper.get_text(self.buffer))
+            voice_data = self.vad.vad(self.buffer)
+            if "start" in voice_data:
+                if "end" in voice_data:
+                    self.emit("text", self.whisper.get_text(self.buffer))
+                else:
+                    self.voice_buffer = self.buffer
+            elif "end" in voice_data:
+                self.emit("text", self.whisper.get_text(self.voice_buffer))
+                self.voice_buffer = None
+            elif self.voice_buffer is not None:
+                self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
             self.buffer = resampled.to_ndarray()
             self.count = 1
+
+
         return resampled
 
