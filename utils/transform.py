@@ -4,6 +4,7 @@ from av.audio.resampler import AudioResampler
 from pyee.asyncio import AsyncIOEventEmitter
 import numpy as np
 
+from models.llm import LLM
 from models.vad import VAD
 from models.whisper import Whisper
 
@@ -52,12 +53,18 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
             voice_data = self.vad.vad(self.buffer)
             if "start" in voice_data:
                 if "end" in voice_data:
-                    self.emit("text", self.whisper.get_text(self.buffer))
+                    text_from_voice = self.whisper.get_text(self.buffer)
+                    self.emit("text", text_from_voice)
+                    response = LLM.get_response(text_from_voice)
+                    self.emit("response", response)
                 else:
                     self.voice_buffer = self.buffer
             elif "end" in voice_data:
-                self.emit("text", self.whisper.get_text(self.voice_buffer))
+                text_from_voice = self.whisper.get_text(self.voice_buffer)
                 self.voice_buffer = None
+                self.emit("text", text_from_voice)
+                response = LLM.get_response(text_from_voice)
+                self.emit("response", response)
             elif self.voice_buffer is not None:
                 self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
             self.buffer = resampled.to_ndarray()

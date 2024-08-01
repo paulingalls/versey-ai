@@ -72,6 +72,10 @@ class WebRTCConnection(AsyncIOEventEmitter):
                 def on_text(data):
                     self.send_string(f"text: {data}")
 
+                @self.transform.on("response")
+                def on_response(data):
+                    self.send_string(f"response: {data}")
+
             @track.on("ended")
             async def on_ended():
                 self.log_info("Track %s ended", track.kind)
