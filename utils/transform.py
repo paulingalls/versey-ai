@@ -7,6 +7,7 @@ import numpy as np
 from models.llm import LLM
 from models.vad import VAD
 from models.whisper import Whisper
+from models.tts import generate
 
 TARGET_SAMPLE_RATE = 16000
 
@@ -25,6 +26,7 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         self.resampler = AudioResampler(format="s16", layout="mono", rate=TARGET_SAMPLE_RATE)
         self.vad = VAD(TARGET_SAMPLE_RATE)
         self.whisper = Whisper()
+        self.sentence = ""
 
         @self.vad.on("voiceStart")
         async def on_voice_start(data):
@@ -37,6 +39,12 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
     def down_sample(self, frame: AudioFrame) -> AudioFrame:
         new_frames = self.resampler.resample(frame)
         return new_frames[0]
+
+    def on_text(self, text: str, probability):
+        self.sentence += text
+        if text == "." or text == "!" or text == "?":
+            self.emit("response", f"sentence: {self.sentence}")
+            self.sentence = ""
 
     async def recv(self):
         frame: AudioFrame = await self.track.recv()
@@ -55,7 +63,7 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
                 if "end" in voice_data:
                     text_from_voice = self.whisper.get_text(self.buffer)
                     self.emit("text", text_from_voice)
-                    response = LLM.get_response(text_from_voice)
+                    response = LLM.get_response(text_from_voice, self.on_text)
                     self.emit("response", response)
                 else:
                     self.voice_buffer = self.buffer
@@ -63,8 +71,9 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
                 text_from_voice = self.whisper.get_text(self.voice_buffer)
                 self.voice_buffer = None
                 self.emit("text", text_from_voice)
-                response = LLM.get_response(text_from_voice)
+                response = LLM.get_response(text_from_voice, self.on_text)
                 self.emit("response", response)
+                # generate("/Users/paulingalls/src/versey-ai/mlx_models/bark", response, "small")
             elif self.voice_buffer is not None:
                 self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
             self.buffer = resampled.to_ndarray()

@@ -9,6 +9,6 @@ class LLM(AsyncIOEventEmitter):
         super().__init__()
 
     @staticmethod
-    def get_response(text):
-        response = generate(model, tokenizer, prompt=text, verbose=True)
+    def get_response(text, stream_callback):
+        response = generate(model, tokenizer, prompt=text, verbose=True, formatter=stream_callback)
         return response

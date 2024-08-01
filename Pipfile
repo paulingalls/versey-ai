@@ -19,6 +19,8 @@ torch = "*"
 numpy = "*"
 scipy = "*"
 lightning-whisper-mlx = "*"
+transformers = "*"
+encodec = "*"
 
 [dev-packages]
 
