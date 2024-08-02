@@ -1,6 +1,7 @@
 from aiortc import MediaStreamTrack
 from av.audio.frame import AudioFrame
 from av.audio.resampler import AudioResampler
+from av.utils import Fraction
 from pyee.asyncio import AsyncIOEventEmitter
 import numpy as np
 
@@ -14,7 +15,6 @@ OUTPUT_SAMPLE_RATE = 44100
 
 
 class Transform(MediaStreamTrack, AsyncIOEventEmitter):
-
     kind = "audio"
 
     def __init__(self, track):
@@ -43,7 +43,7 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         new_frames = self.resampler.resample(frame)
         return new_frames[0]
 
-    def on_text(self, text: str, probability):
+    def on_text(self, text: str, _):
         self.sentence += text
         if text == "." or text == "!" or text == "?":
             self.emit("response", f"sentence: {self.sentence}")
@@ -55,23 +55,32 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
             self.sentence = ""
 
     @staticmethod
-    def get_silent_frame(samples, time_base, pts) -> AudioFrame:
+    def get_silent_frame(samples, pts) -> AudioFrame:
         silence = np.zeros((1, samples), dtype='int16')
         new_frame = AudioFrame.from_ndarray(silence, 's16', layout="mono")
         new_frame.sample_rate = OUTPUT_SAMPLE_RATE
-        new_frame.time_base = time_base
-        new_frame.pts = pts
+        new_frame.time_base = Fraction(1, OUTPUT_SAMPLE_RATE)
+        new_frame.pts = round(pts * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
         return new_frame
 
-    def get_next_frame(self, samples, time_base, pts) -> AudioFrame:
-        if self.response_buffer is None or len(self.response_buffer) < samples:
-            return self.get_silent_frame(samples, time_base, pts)
-        next_samples = self.response_buffer[0:samples] * 32768
-        self.response_buffer = self.response_buffer[samples:]
+    def get_next_frame(self, samples, pts) -> AudioFrame:
+        next_samples = None
+        if self.response_buffer is None:
+            return self.get_silent_frame(samples, pts)
+        elif len(self.response_buffer) < samples:
+            next_samples = self.response_buffer * 32768
+            next_samples = np.concatenate((next_samples,
+                                           np.zeros((samples - len(next_samples)), dtype=np.float32)),
+                                          axis=0)
+            self.response_buffer = None
+        else:
+            next_samples = self.response_buffer[0:samples] * 32768
+            self.response_buffer = self.response_buffer[samples:]
+
         next_frame = AudioFrame.from_ndarray(np.array([np.asarray(next_samples, dtype=np.int16)]), 's16', layout="mono")
         next_frame.sample_rate = OUTPUT_SAMPLE_RATE
-        next_frame.time_base = time_base
-        next_frame.pts = pts
+        next_frame.time_base = Fraction(1, OUTPUT_SAMPLE_RATE)
+        next_frame.pts = round(pts * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
         return next_frame
 
     async def recv(self):
@@ -79,7 +88,7 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         resampled = self.down_sample(frame)
         if resampled.samples < 320:
             output_samples = round(resampled.samples * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
-            return self.get_silent_frame(output_samples, resampled.time_base, resampled.pts)
+            return self.get_silent_frame(output_samples, resampled.pts)
 
         if self.buffer is None:
             self.buffer = resampled.to_ndarray()
@@ -108,4 +117,4 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
             self.count = 1
 
         output_samples = round(resampled.samples * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
-        return self.get_next_frame(output_samples, resampled.time_base, resampled.pts)
+        return self.get_next_frame(output_samples, resampled.pts)
