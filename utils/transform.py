@@ -7,9 +7,10 @@ import numpy as np
 from models.llm import LLM
 from models.vad import VAD
 from models.whisper import Whisper
-from models.tts import generate
+from models.melo import Melo
 
-TARGET_SAMPLE_RATE = 16000
+MODEL_SAMPLE_RATE = 16000
+OUTPUT_SAMPLE_RATE = 44100
 
 
 class Transform(MediaStreamTrack, AsyncIOEventEmitter):
@@ -23,10 +24,12 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         self.buffer = None
         self.voice_buffer = None
         self.count = 1
-        self.resampler = AudioResampler(format="s16", layout="mono", rate=TARGET_SAMPLE_RATE)
-        self.vad = VAD(TARGET_SAMPLE_RATE)
+        self.resampler = AudioResampler(format="s16", layout="mono", rate=MODEL_SAMPLE_RATE)
+        self.vad = VAD(MODEL_SAMPLE_RATE)
         self.whisper = Whisper()
+        self.melo = Melo()
         self.sentence = ""
+        self.response_buffer = None
 
         @self.vad.on("voiceStart")
         async def on_voice_start(data):
@@ -44,13 +47,39 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         self.sentence += text
         if text == "." or text == "!" or text == "?":
             self.emit("response", f"sentence: {self.sentence}")
+            sentence_audio = self.melo.generate(self.sentence)
+            if self.response_buffer is None:
+                self.response_buffer = sentence_audio
+            else:
+                self.response_buffer = np.concatenate((self.response_buffer, sentence_audio), axis=0)
             self.sentence = ""
+
+    @staticmethod
+    def get_silent_frame(samples, time_base, pts) -> AudioFrame:
+        silence = np.zeros((1, samples), dtype='int16')
+        new_frame = AudioFrame.from_ndarray(silence, 's16', layout="mono")
+        new_frame.sample_rate = OUTPUT_SAMPLE_RATE
+        new_frame.time_base = time_base
+        new_frame.pts = pts
+        return new_frame
+
+    def get_next_frame(self, samples, time_base, pts) -> AudioFrame:
+        if self.response_buffer is None or len(self.response_buffer) < samples:
+            return self.get_silent_frame(samples, time_base, pts)
+        next_samples = self.response_buffer[0:samples] * 32768
+        self.response_buffer = self.response_buffer[samples:]
+        next_frame = AudioFrame.from_ndarray(np.array([np.asarray(next_samples, dtype=np.int16)]), 's16', layout="mono")
+        next_frame.sample_rate = OUTPUT_SAMPLE_RATE
+        next_frame.time_base = time_base
+        next_frame.pts = pts
+        return next_frame
 
     async def recv(self):
         frame: AudioFrame = await self.track.recv()
         resampled = self.down_sample(frame)
         if resampled.samples < 320:
-            return resampled
+            output_samples = round(resampled.samples * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
+            return self.get_silent_frame(output_samples, resampled.time_base, resampled.pts)
 
         if self.buffer is None:
             self.buffer = resampled.to_ndarray()
@@ -73,12 +102,10 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
                 self.emit("text", text_from_voice)
                 response = LLM.get_response(text_from_voice, self.on_text)
                 self.emit("response", response)
-                # generate("/Users/paulingalls/src/versey-ai/mlx_models/bark", response, "small")
             elif self.voice_buffer is not None:
                 self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
             self.buffer = resampled.to_ndarray()
             self.count = 1
 
-
-        return resampled
-
+        output_samples = round(resampled.samples * OUTPUT_SAMPLE_RATE / MODEL_SAMPLE_RATE)
+        return self.get_next_frame(output_samples, resampled.time_base, resampled.pts)
