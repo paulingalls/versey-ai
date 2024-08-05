@@ -24,6 +24,7 @@ class AIThread(threading.Thread):
         self.vad = VAD(MODEL_SAMPLE_RATE)
         self.whisper = Whisper()
         self.melo = Melo()
+        self.llm = LLM()
         self.sentence = ""
 
     def down_sample(self, frame: AudioFrame) -> AudioFrame:
@@ -39,7 +40,7 @@ class AIThread(threading.Thread):
 
     def start_llm_response(self, buffer):
         text_from_voice = self.whisper.get_text(buffer)
-        LLM.get_response(text_from_voice, self.on_text)
+        self.llm.get_response(text_from_voice, self.on_text)
 
     def run(self):
         while True:

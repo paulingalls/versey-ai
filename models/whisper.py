@@ -6,7 +6,7 @@ class Whisper(AsyncIOEventEmitter):
 
     def __init__(self):
         super().__init__()
-        self.whisper = LightningWhisperMLX(model="distil-medium.en", batch_size=12, quant=None)
+        self.whisper = LightningWhisperMLX(model="distil-large-v3", batch_size=12, quant=None)
 
     def get_text(self, audio):
         return self.whisper.transcribe(audio[0])["text"]
