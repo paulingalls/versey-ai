@@ -3,8 +3,8 @@ from datetime import date
 from pyee.asyncio import AsyncIOEventEmitter
 from mlx_lm import load, generate
 
-model, tokenizer = load("mlx-community/Meta-Llama-3.1-8B-8bit")
-# model, tokenizer = load("mlx-community/Meta-Llama-3.1-8B-Instruct-8bit")
+# model, tokenizer = load("mlx-community/Meta-Llama-3.1-8B-8bit")
+model, tokenizer = load("mlx-community/Meta-Llama-3.1-8B-Instruct-8bit")
 # model, tokenizer = load("mlx-community/Meta-Llama-3.1-70B-8bit")
 
 
@@ -29,5 +29,5 @@ class LLM(AsyncIOEventEmitter):
         prompt = self.get_prompt(text)
         response = generate(model, tokenizer, prompt=prompt, verbose=True, formatter=stream_callback)
         self.messages.append({"role": "assistant", "message": response})
-
+        print(f"response: {response}")
         return response

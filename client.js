@@ -182,7 +182,9 @@ function start() {
             sampleRate: 16000, // {exact: 16000},
             channelCount: 1, // {exact: 1},
             sampleSize: 8, // {exact: 8},
-            noiseSuppression: true
+            noiseSuppression: true,
+            autoGain: true,
+            echoCancellation: true
         };
 
         const device = document.getElementById('audio-input').value;

@@ -7,4 +7,4 @@ class Melo:
         self.speaker_ids = self.model.hps.data.spk2id
 
     def generate(self, text):
-        return self.model.tts_to_file(text, self.speaker_ids['EN-Newest'], None, speed=1.0)
+        return self.model.tts_to_file(text, self.speaker_ids['EN-Newest'], None, speed=1.0, quiet=True)

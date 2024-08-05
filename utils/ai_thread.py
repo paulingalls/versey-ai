@@ -36,13 +36,17 @@ class AIThread(threading.Thread):
     def on_text(self, text: str, _):
         self.sentence += text
         if text == "." or text == "!" or text == "?" or text == "\n" or text.endswith(".\""):
+            print(f"sentence: {self.sentence}")
             self.sentence_queue.put(self.sentence)
             self.sentence = ""
 
     def start_llm_response(self, buffer):
         text_from_voice = self.whisper.get_text(buffer)
-        self.llm.get_response(text_from_voice, self.on_text)
+        print(f"text_from_voice: {text_from_voice}")
+        if len(text_from_voice.strip()) > 3:
+            self.llm.get_response(text_from_voice, self.on_text)
         if len(self.sentence) > 0:
+            print(f"last part of sentence: {self.sentence}")
             self.sentence_queue.put(self.sentence)
             self.sentence = ""
 
@@ -66,6 +70,7 @@ class AIThread(threading.Thread):
                     else:
                         self.voice_buffer = self.buffer
                 elif "end" in voice_data:
+                    self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
                     self.start_llm_response(self.voice_buffer)
                     self.voice_buffer = None
                 elif self.voice_buffer is not None:
