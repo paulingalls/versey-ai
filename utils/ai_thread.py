@@ -31,16 +31,21 @@ class AIThread(threading.Thread):
         new_frames = self.resampler.resample(frame)
         return new_frames[0]
 
+    def get_response_audio_for_sentence(self):
+        sentence_audio = self.melo.generate(self.sentence)
+        self.sentence = ""
+        self.output_queue.put(sentence_audio)
+
     def on_text(self, text: str, _):
         self.sentence += text
-        if text == "." or text == "!" or text == "?" or text.endswith(".\""):
-            sentence_audio = self.melo.generate(self.sentence)
-            self.sentence = ""
-            self.output_queue.put(sentence_audio)
+        if text == "." or text == "!" or text == "?" or text == "\n" or text.endswith(".\""):
+            self.get_response_audio_for_sentence()
 
     def start_llm_response(self, buffer):
         text_from_voice = self.whisper.get_text(buffer)
         self.llm.get_response(text_from_voice, self.on_text)
+        if len(self.sentence) > 0:
+            self.get_response_audio_for_sentence()
 
     def run(self):
         while True:

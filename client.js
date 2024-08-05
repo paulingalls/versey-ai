@@ -158,7 +158,7 @@ function start() {
                 var message = 'ping ' + current_stamp();
                 // dataChannelLog.textContent += '> ' + message + '\n';
                 dc.send(message);
-            }, 1000);
+            }, 5000);
         });
         dc.addEventListener('message', (evt) => {
             dataChannelLog.textContent += '< ' + evt.data + '\n';
