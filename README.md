@@ -61,6 +61,6 @@ This project is licensed under the MIT License. See the `LICENSE` file for more 
 - [Silero VAD](https://github.com/snakers4/silero-vad)
 - [Whisper](https://github.com/openai/whisper)
 - [Llama](https://github.com/facebookresearch/llama)
-- [MeloTTS](https://github.com/melotech/melotts)
+- [MeloTTS](https://github.com/myshell-ai/MeloTTS)
  
 
