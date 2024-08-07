@@ -62,5 +62,5 @@ This project is licensed under the MIT License. See the `LICENSE` file for more 
 - [Whisper](https://github.com/openai/whisper)
 - [Llama](https://github.com/facebookresearch/llama)
 - [MeloTTS](https://github.com/melotech/melotts)
-  Feel free to adjust the contents based on the specifics of your project. Let me know if you need any further customizations!
+ 
 
