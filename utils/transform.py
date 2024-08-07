@@ -17,9 +17,14 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         super().__init__()
         self.track = track
         self.response_buffer = None
-        self.write_queue = Queue(0)
-        self.read_queue = Queue(0)
-        self.ai_thread = AIThread(self.write_queue, self.read_queue)
+        self.audio_write_queue = Queue(0)
+        self.audio_read_queue = Queue(0)
+        self.user_text_read_queue = Queue(0)
+        self.llm_text_read_queue = Queue(0)
+        self.ai_thread = AIThread(self.audio_write_queue,
+                                  self.audio_read_queue,
+                                  self.user_text_read_queue,
+                                  self.llm_text_read_queue)
         self.ai_thread.start()
 
     @staticmethod
@@ -32,13 +37,23 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
         return new_frame
 
     def pull_audio_from_queue(self):
-        while self.read_queue.qsize() > 0:
-            audio_data = self.read_queue.get()
+        while self.audio_read_queue.qsize() > 0:
+            audio_data = self.audio_read_queue.get()
             if self.response_buffer is None:
                 self.response_buffer = audio_data
             else:
                 self.response_buffer = np.concatenate((self.response_buffer, audio_data), axis=0)
-            self.read_queue.task_done()
+            self.audio_read_queue.task_done()
+
+    def pull_text_from_queue(self):
+        while self.user_text_read_queue.qsize() > 0:
+            text_data = self.user_text_read_queue.get()
+            self.emit("text", text_data)
+            self.user_text_read_queue.task_done()
+        while self.llm_text_read_queue.qsize() > 0:
+            llm_data = self.llm_text_read_queue.get()
+            self.emit("response", llm_data)
+            self.llm_text_read_queue.task_done()
 
     def get_next_frame(self, samples, sample_rate, pts) -> AudioFrame:
         next_samples = None
@@ -62,7 +77,8 @@ class Transform(MediaStreamTrack, AsyncIOEventEmitter):
 
     async def recv(self):
         frame: AudioFrame = await self.track.recv()
-        self.write_queue.put_nowait(frame)
+        self.audio_write_queue.put_nowait(frame)
         self.pull_audio_from_queue()
+        self.pull_text_from_queue()
         output_samples = round(frame.samples * OUTPUT_SAMPLE_RATE / frame.sample_rate)
         return self.get_next_frame(output_samples, frame.sample_rate, frame.pts)

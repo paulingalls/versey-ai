@@ -12,10 +12,16 @@ MODEL_SAMPLE_RATE = 16000
 
 
 class AIThread(threading.Thread):
-    def __init__(self, input_queue: Queue, output_queue: Queue):
+    def __init__(self,
+                 audio_input_queue: Queue,
+                 audio_output_queue: Queue,
+                 user_text_output_queue: Queue,
+                 llm_text_output_queue: Queue):
         super().__init__(name='AIThread')
-        self.input_queue = input_queue
-        self.output_queue = output_queue
+        self.audio_input_queue = audio_input_queue
+        self.audio_output_queue = audio_output_queue
+        self.user_text_output_queue = user_text_output_queue
+        self.llm_text_output_queue = llm_text_output_queue
         self.sentence_queue = Queue(0)
         self.daemon = True
         self.buffer = None
@@ -26,7 +32,7 @@ class AIThread(threading.Thread):
         self.vad = VAD(MODEL_SAMPLE_RATE)
         self.whisper = Whisper()
         self.llm = LLM()
-        self.tts_thread = TTSThread(self.sentence_queue, self.output_queue)
+        self.tts_thread = TTSThread(self.sentence_queue, self.audio_output_queue)
         self.tts_thread.start()
 
     def down_sample(self, frame: AudioFrame) -> AudioFrame:
@@ -44,7 +50,9 @@ class AIThread(threading.Thread):
         text_from_voice = self.whisper.get_text(buffer)
         print(f"text_from_voice: {text_from_voice}")
         if len(text_from_voice.strip()) > 3:
-            self.llm.get_response(text_from_voice, self.on_text)
+            self.user_text_output_queue.put_nowait(text_from_voice)
+            response = self.llm.get_response(text_from_voice, self.on_text)
+            self.llm_text_output_queue.put_nowait(response)
         if len(self.sentence) > 0:
             print(f"last part of sentence: {self.sentence}")
             self.sentence_queue.put(self.sentence)
@@ -52,10 +60,10 @@ class AIThread(threading.Thread):
 
     def run(self):
         while True:
-            frame: AudioFrame = self.input_queue.get()
+            frame: AudioFrame = self.audio_input_queue.get()
             resampled = self.down_sample(frame)
             if resampled.samples < 320:
-                self.input_queue.task_done()
+                self.audio_input_queue.task_done()
                 continue
             if self.buffer is None:
                 self.buffer = resampled.to_ndarray()
@@ -77,4 +85,4 @@ class AIThread(threading.Thread):
                     self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
                 self.buffer = resampled.to_ndarray()
                 self.count = 1
-            self.input_queue.task_done()
+            self.audio_input_queue.task_done()
