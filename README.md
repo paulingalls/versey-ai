@@ -36,6 +36,7 @@ This Python web server provides a WebRTC interface to allow users to interact wi
 3. Install the required packages:
     ```sh
     pipenv install
+    pipenv run python -m unidic download
     ```
 
 ## Usage
@@ -45,7 +46,11 @@ This Python web server provides a WebRTC interface to allow users to interact wi
     pipenv run python ./server.py
     ```
 
-2. Open a browser and navigate to `http://localhost:8080` to interact with the LLM via the WebRTC interface.
+2. Wait till it says the server is ready (this could take a little time while it downloads the model files)
+3. Open a browser and navigate to `http://localhost:8080` to interact with the LLM via the WebRTC interface.
+4. Click the start button
+5. Wait until it says `-open` in the data channel (this could take a bit the first time as it downloads the models)
+6. Start talking
 
 ## Contributing
 
