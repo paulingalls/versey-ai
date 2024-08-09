@@ -42,7 +42,7 @@ This Python web server provides a WebRTC interface to allow users to interact wi
 
 1. Start the server:
     ```sh
-    python server.py
+    pipenv run python ./server.py
     ```
 
 2. Open a browser and navigate to `http://localhost:8080` to interact with the LLM via the WebRTC interface.
