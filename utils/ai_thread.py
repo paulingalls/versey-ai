@@ -41,7 +41,7 @@ class AIThread(threading.Thread):
 
     def on_text(self, text: str, _):
         self.sentence += text
-        if text == "." or text == "!" or text == "?" or text == "\n" or text.endswith(".\""):
+        if text == "." or text == "!" or text == "?" or text == "\n" or text == ":" or text.endswith(".\""):
             print(f"sentence: {self.sentence}")
             self.sentence_queue.put(self.sentence)
             self.sentence = ""
@@ -73,14 +73,19 @@ class AIThread(threading.Thread):
             else:
                 voice_data = self.vad.vad(self.buffer)
                 if "start" in voice_data:
+                    print(f"voice start: {voice_data["start"]}")
                     if "end" in voice_data:
+                        print(f"voice quick end: {voice_data["end"]}")
                         self.start_llm_response(self.buffer)
+                        self.vad.done()
                     else:
                         self.voice_buffer = self.buffer
                 elif "end" in voice_data:
+                    print(f"voice end: {voice_data["end"]}")
                     self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
                     self.start_llm_response(self.voice_buffer)
                     self.voice_buffer = None
+                    self.vad.done()
                 elif self.voice_buffer is not None:
                     self.voice_buffer = np.concatenate((self.voice_buffer, self.buffer), axis=1)
                 self.buffer = resampled.to_ndarray()
